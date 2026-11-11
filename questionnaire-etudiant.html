@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--ipad-compat:debut · bloc inséré par outils/ipad/injecter.py, à modifier dans outils/ipad/compat.html seulement-->
+<noscript><style>body::before{content:"Cette page a besoin de JavaScript. Ouvrez le lien dans votre navigateur (Safari, Chrome, Edge…), pas dans l’aperçu du mail.";display:block;padding:14px 16px;background:#fff3cd;color:#5c3c00;font:16px/1.4 -apple-system,system-ui,sans-serif}</style></noscript>
+<style>html{-webkit-text-size-adjust:100%}button,a,input,select,label,summary,[role=button],[draggable],[tabindex]{touch-action:manipulation}#ipad-err{position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#fff3cd;color:#5c3c00;border:2px solid #b07d00;border-radius:10px;padding:10px 14px;font:15px/1.4 -apple-system,system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.25)}#ipad-err button{margin-left:8px;font:inherit;padding:4px 12px;border-radius:8px;border:1px solid #b07d00;background:#fff}#ipad-err small{display:block;opacity:.75;margin-top:4px}#ipad-info{position:fixed;left:8px;right:8px;top:8px;z-index:2147483647;background:#e1edf6;color:#123a5c;border:2px solid #1d5f8f;border-radius:10px;padding:10px 14px;font:15px/1.4 -apple-system,system-ui,sans-serif}</style>
+<script>
+/* Compatibilité tablettes : iPad (Safari, iPadOS 15+), Android (Oppo, Samsung… : Chrome et navigateurs du fabricant), Windows (Surface : Edge, Chrome) :
+   1. erreur bloquante : encadré visible avec un bouton Recharger (sauf si la page a déjà le sien, window.onerror) ;
+   2. copie dans le presse-papiers : solution de secours quand navigator.clipboard manque ou refuse (lien http, fichier local) ;
+   3. plein écran : noms préfixés webkit de Safari avant 16.4 ;
+   4. fichiers enregistrés (a.download sur un blob) : sur iPad/iPhone, feuille de partage (Enregistrer dans Fichiers, Mail, AirDrop),
+      plus fiable que le téléchargement, surtout dans le navigateur intégré d'une appli de mail ; ailleurs téléchargement normal ;
+      dans le navigateur intégré d'une appli Android (Outlook, Gmail…), où les téléchargements échouent, un bandeau dit d'ouvrir dans Chrome ;
+   5. import de fichiers : iOS et Android grisent parfois les .json/.csv filtrés par « accept », le filtre est retiré au moment du choix. */
+(function () {
+  var w = window, d = document, n = navigator;
+  var ios = /iP(ad|hone|od)/.test(n.userAgent) || (n.platform === "MacIntel" && n.maxTouchPoints > 1);
+  var android = /Android/i.test(n.userAgent), webview = android && /; wv\)|FBAN|FBAV|Instagram|Line\//.test(n.userAgent);
+  function boite(msg) {
+    try {
+      if (w.onerror || d.getElementById("ipad-err")) return;
+      var b = d.createElement("div"); b.id = "ipad-err"; b.setAttribute("role", "alert");
+      b.innerHTML = "<b>Un problème empêche cette page de fonctionner.</b> Rechargez-la ; si cela continue, ouvrez le lien dans votre navigateur (Safari, Chrome, Edge). <button type=\"button\">Recharger</button><small></small>";
+      b.querySelector("small").textContent = String(msg || "").slice(0, 160);
+      b.querySelector("button").onclick = function () { location.reload(); };
+      (d.body || d.documentElement).appendChild(b);
+    } catch (e) {}
+  }
+  w.addEventListener("error", function (e) { if (e && e.message) boite(e.message); });
+  w.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason, nom = r && r.name;
+    if (nom === "AbortError" || nom === "NotAllowedError" || nom === "SecurityError") return;   // partage annulé, copie refusée : sans gravité
+    boite(r && (r.message || r));
+  });
+  function copieSecours(t) {
+    var a = d.createElement("textarea"), ok = false;
+    a.value = t; a.setAttribute("readonly", ""); a.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px";
+    d.body.appendChild(a); a.focus(); a.select(); try { a.setSelectionRange(0, t.length); ok = d.execCommand("copy"); } catch (e) {}
+    a.remove(); return ok;
+  }
+  try {
+    var c = n.clipboard;
+    if (!c || !c.writeText) {
+      Object.defineProperty(n, "clipboard", { configurable: true, value: { writeText: function (t) {
+        return copieSecours(String(t)) ? Promise.resolve() : Promise.reject(new Error("copie impossible"));
+      } } });
+    } else {
+      var ecrire = c.writeText.bind(c);
+      c.writeText = function (t) { return ecrire(t).catch(function (e) { if (!copieSecours(String(t))) throw e; }); };
+    }
+  } catch (e) {}
+  var E = w.Element && Element.prototype, D = w.Document && Document.prototype;
+  if (E && !E.requestFullscreen && E.webkitRequestFullscreen) {
+    E.requestFullscreen = function () { try { this.webkitRequestFullscreen(); return Promise.resolve(); } catch (e) { return Promise.reject(e); } };
+    if (!("fullscreenElement" in d)) Object.defineProperty(D, "fullscreenElement", { configurable: true, get: function () { return this.webkitFullscreenElement || null; } });
+    if (!D.exitFullscreen && D.webkitExitFullscreen) D.exitFullscreen = function () { this.webkitExitFullscreen(); return Promise.resolve(); };
+  }
+  d.addEventListener("click", function (e) {   // import : sans filtre sur tablette tactile
+    var t = e.target;
+    if ((ios || android) && t && t.tagName === "INPUT" && t.type === "file" && t.hasAttribute("accept")) t.removeAttribute("accept");
+  }, true);
+  function info() {   // navigateur intégré d'une appli Android : prévenir dès l'ouverture, avant toute saisie
+    try {
+      if (d.getElementById("ipad-info")) return;
+      var i = d.createElement("div"); i.id = "ipad-info"; i.setAttribute("role", "status");
+      i.textContent = "Ouvrez cette page dans Chrome avant de commencer (menu ⋮ puis « Ouvrir dans Chrome ») : ici, les fichiers ne peuvent pas être enregistrés. Toucher pour fermer.";
+      i.onclick = function () { i.remove(); }; d.body.appendChild(i);
+    } catch (e) {}
+  }
+  if (webview) { if (d.body) info(); else d.addEventListener("DOMContentLoaded", info); }
+  if (!ios && !webview) return;
+  var blobs = {}, creer = URL.createObjectURL;
+  URL.createObjectURL = function (o) { var u = creer.apply(URL, arguments); if (o instanceof Blob) blobs[u] = o; return u; };
+  var cliquer = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    var a = this, b = a.hasAttribute("download") && blobs[a.href];
+    if (b && webview) info();
+    if (b && ios && n.share && n.canShare && w.File) {
+      try {
+        var f = new File([b], a.getAttribute("download") || "fichier", { type: b.type || "application/octet-stream" });
+        if (n.canShare({ files: [f] })) {
+          n.share({ files: [f] }).catch(function (e) { if (!e || e.name !== "AbortError") cliquer.call(a); });
+          return;
+        }
+      } catch (e) {}
+    }
+    return cliquer.call(a);
+  };
+})();
+</script>
+<!--ipad-compat:fin-->
+<title>Questionnaire de rentrée de cours</title>
+<style>:root{--bg:#f6f5f2;--card:#fff;--ink:#1d2330;--mute:#5d6575;--line:#dcdfe5;--acc:#2f5d8a;--acc-l:#e3ecf5;--ok:#1f7a4d;--ok-l:#e2f3ea;--ko:#a8322d;--ko-l:#f8e4e2;--warn:#8a5a00;--warn-l:#fbefd6}
+@media (prefers-color-scheme:dark){:root{--bg:#15181e;--card:#1e222a;--ink:#e7e9ee;--mute:#a3aab8;--line:#343a46;--acc:#7fb0e0;--acc-l:#24344a;--ok:#6cc79a;--ok-l:#1d3a2c;--ko:#ec8a84;--ko-l:#43201e;--warn:#e7b85c;--warn-l:#3f321a}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:16px 16px 96px}
+h1{font-size:1.45rem;line-height:1.25;margin:.4em 0 .3em}
+h2{font-size:1.2rem;margin:0 0 .2em}
+h3{font-size:1rem;margin:1.2em 0 .4em}
+p{margin:.4em 0}
+.mute{color:var(--mute);font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0}
+.q{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+.q .t{font-weight:600;margin-bottom:10px}
+.q .num{color:var(--mute);font-weight:500;margin-right:4px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.opt{flex:1 1 0;min-width:84px;min-height:44px;padding:8px 10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font:inherit;font-size:.95rem;cursor:pointer}
+.opt[aria-pressed=true]{border-color:var(--acc);background:var(--acc-l);font-weight:600}
+.opt:focus-visible,.btn:focus-visible,.chip:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.conf{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.92rem;color:var(--mute)}
+.conf .opt{flex:0 0 auto;min-width:0;min-height:38px;padding:6px 12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:40px;padding:6px 12px;border:1.5px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font:inherit;font-size:.92rem;cursor:pointer;text-align:left}
+.chip[aria-pressed=true]{border-color:var(--acc);background:var(--acc-l);font-weight:600}
+.nrow{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.nrow:last-child{border-bottom:0}
+.nrow .opt{min-width:0;min-height:38px;padding:4px 10px;font-size:.85rem}
+.nrow .opt[aria-pressed=true].f{border-color:var(--warn);background:var(--warn-l)}
+@media (max-width:480px){.nrow{grid-template-columns:1fr 1fr}.nrow span{grid-column:1/-1}}
+input[type=text],textarea{width:100%;font:inherit;padding:10px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+textarea{min-height:120px}
+.btn{display:inline-block;min-height:46px;padding:10px 18px;border-radius:10px;border:0;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+@media (prefers-color-scheme:dark){.btn{color:#10151c}}
+.btn.sec{background:transparent;color:var(--acc);border:1.5px solid var(--acc)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px;z-index:5}
+.nav .in{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--acc);transition:width .25s}
+.badge{display:inline-block;font-size:.78rem;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--acc-l);color:var(--acc)}
+.ok{color:var(--ok)}.ko{color:var(--ko)}
+.res{border-left:4px solid var(--line);padding:10px 12px;margin:10px 0;background:var(--card);border-radius:0 10px 10px 0}
+.res.good{border-color:var(--ok)}.res.bad{border-color:var(--ko)}.res.dk{border-color:var(--warn)}
+.src{font-size:.82rem;color:var(--mute)}
+.hide{display:none!important}
+.note{background:var(--warn-l);border-radius:10px;padding:10px 12px;font-size:.92rem}
+code.code{display:block;word-break:break-all;font-size:.75rem;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:110px;overflow:auto}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <p class="note" id="nojs"><b>Les boutons ne réagissent pas ?</b> Le fichier est ouvert en simple aperçu (fréquent sur iPad et iPhone). Ouvrez-le dans Safari ou Chrome : depuis Moodle ou un lien, ou par « Partager » puis « Ouvrir dans… ».</p>
+
+  <section data-step="0">
+    <span class="badge">Psychologie du développement · L2</span>
+    <h1>Où en êtes-vous ?</h1>
+    <div class="card">
+      <p><b>Ce questionnaire n'est pas noté.</b> Il sert à préparer les prochains cours : reprendre ce qui reste flou, approfondir ce qui vous intéresse.</p>
+      <p>Environ <b>12 minutes</b>, en 5 étapes courtes. Répondez seul(e), sans vos notes : « Je ne sais pas » est une réponse utile.</p>
+      <p>À la fin, vous envoyez un petit fichier à l'enseignant, puis vous voyez les réponses commentées.</p>
+    </div>
+    <div class="card">
+      <label for="nom"><b>Votre prénom et nom</b> <span class="mute">(facultatif)</span></label>
+      <p class="mute">Laissez vide pour répondre de façon anonyme.</p>
+      <input type="text" id="nom" autocomplete="name" maxlength="60">
+    </div>
+  </section>
+
+  <section data-step="1" class="hide">
+    <span class="badge">Étape 1 sur 5</span>
+    <h2>Les messages clés du cours</h2>
+    <p class="mute">Vrai ou faux ? Puis dites si vous êtes sûr(e) de vous.</p>
+    <div id="l-vu"></div>
+  </section>
+
+  <section data-step="2" class="hide">
+    <span class="badge">Étape 2 sur 5</span>
+    <h2>Troubles du neurodéveloppement et diagnostic différentiel</h2>
+    <p class="mute">Vrai ou faux ? Puis dites si vous êtes sûr(e) de vous.</p>
+    <div id="l-tnd"></div>
+    <h3>Aujourd'hui, je saurais…</h3>
+    <div id="l-auto"></div>
+  </section>
+
+  <section data-step="3" class="hide">
+    <span class="badge">Étape 3 sur 5</span>
+    <h2>L'adolescence</h2>
+    <p class="mute">Nous n'avons pas encore traité ce thème. Répondez avec ce que vous savez ou pensez aujourd'hui : « Je ne sais pas » est une réponse attendue.</p>
+    <div id="l-ado"></div>
+    <h3>Quels thèmes vous intéressent le plus ? <span class="mute">(autant que vous voulez)</span></h3>
+    <div class="chips" id="l-themes"></div>
+  </section>
+
+  <section data-step="4" class="hide">
+    <span class="badge">Étape 4 sur 5</span>
+    <h2>Difficile ou à approfondir ?</h2>
+    <p class="mute">Pour chaque notion déjà vue, cochez si elle reste <b>floue</b> et/ou si vous aimeriez l'<b>approfondir</b>. Laissez vide sinon.</p>
+    <div class="card" id="l-notions" style="padding:4px 14px"></div>
+    <label for="autre"><b>Autre notion</b> <span class="mute">(facultatif)</span></label>
+    <input type="text" id="autre" maxlength="200">
+  </section>
+
+  <section data-step="5" class="hide">
+    <span class="badge">Étape 5 sur 5</span>
+    <h2>Votre parole</h2>
+    <label for="ouverte" id="lbl-ouverte"></label>
+    <textarea id="ouverte" maxlength="1500"></textarea>
+  </section>
+
+  <section data-step="6" class="hide">
+    <h2>Envoyer vos réponses</h2>
+    <p id="manque" class="note hide"></p>
+    <div class="card">
+      <p><b>1.</b> Envoyez vos réponses comme l'enseignant l'a demandé.</p>
+      <div class="row"><button class="btn" id="dl">Enregistrer ou partager le fichier</button>
+      <a class="btn sec" id="mail" href="#">Envoyer par e-mail</a></div>
+      <p class="mute" style="margin-top:12px">Le fichier ne s'enregistre pas (téléphone) ? Copiez ce code et collez-le dans un message à l'enseignant :</p>
+      <button class="btn sec" id="cp">Copier le code</button>
+      <textarea class="code" id="code" readonly rows="4" style="min-height:0;font-family:monospace;font-size:.75rem"></textarea>
+    </div>
+    <div class="card">
+      <p><b>2.</b> Une fois vos réponses envoyées, découvrez les réponses commentées.</p>
+      <button class="btn" id="voir" disabled>Voir les réponses commentées</button>
+    </div>
+  </section>
+
+  <section data-step="7" class="hide">
+    <h2>Réponses commentées</h2>
+    <p class="mute">Vos réponses sont envoyées et ne peuvent plus être modifiées. Gardez cette page pour réviser.</p>
+    <div id="corr"></div>
+    <div class="card"><p class="mute">Ordinateur partagé ? Avant de laisser la place, effacez vos réponses de cet appareil.</p>
+      <button class="btn sec" id="nouveau">Effacer et laisser la place à un autre étudiant</button></div>
+  </section>
+</div>
+
+<nav class="nav" id="nav">
+  <div class="in">
+    <button class="btn sec" id="prev">Retour</button>
+    <div style="flex:1;max-width:260px"><div class="bar"><i id="bar"></i></div><div class="mute" id="cpt" style="text-align:center;font-size:.8rem"></div></div>
+    <button class="btn" id="next">Commencer</button>
+  </div>
+</nav>
+
+<script>
+window.onerror = function (m, s, l, c) {
+  try { var d = document.getElementById("errjs") || document.createElement("p");
+    d.id = "errjs"; d.className = "note"; d.style.background = "#f8e4e2"; d.style.color = "#a8322d";
+    d.textContent = "Erreur technique (à envoyer à l'enseignant en capture d'écran) : " + m + " — ligne " + l + ":" + c;
+    document.body.insertBefore(d, document.body.firstChild); } catch (e) {}
+};
+</script>
+<script>/* Contenu du questionnaire. Toutes les réponses viennent du cours
+   (cours_psycho_dev_modules_v7.md) (situations fictives illustrant les principes du cours).
+   rep : "V" (vrai) ou "F" (faux). src : où la notion est traitée. */
+const Q = {
+  vu: [
+    { id: "v1", txt: "Une conduite d'enfant s'explique en général par un facteur principal.", rep: "F",
+      expl: "Le développement est multifactoriel. Multifinalité et équifinalité interdisent toute lecture « une cause, un effet ».",
+      src: "Module 1, À retenir n°3 (diapos 12 et 18)" },
+    { id: "v2", txt: "L'enfant transforme aussi son environnement, qui le transforme en retour.", rep: "V",
+      expl: "C'est le modèle transactionnel : le développement est cumulatif et transactionnel.",
+      src: "Module 1, À retenir n°4 (diapos 16 et 18)" },
+    { id: "v3", txt: "Quand une étude montre une association entre deux facteurs, on peut conclure que l'un cause l'autre.", rep: "F",
+      expl: "Sans dispositif expérimental ou quasi expérimental, on écrit « associé à », jamais « cause ».",
+      src: "Module 2, À retenir n°2 (diapos 22 et 31)" },
+    { id: "v4", txt: "Un repère d'âge est une fenêtre, pas une date fixe.", rep: "V",
+      expl: "Un repère est atteint par au moins 75 % des enfants à l'âge indiqué. Les fenêtres motrices sont larges et se chevauchent : la trajectoire informe plus qu'une date.",
+      src: "Module 3, À retenir n°2 ; module 4, À retenir n°2 (diapos 35, 48, 44, 60)" },
+    { id: "v5", txt: "La zone proximale de développement est l'écart entre ce que l'enfant fait seul et ce qu'il fait avec l'aide d'autrui.", rep: "V",
+      expl: "On apprend avec autrui. Ce que l'enfant fait aujourd'hui avec aide, il pourra le faire demain seul. En séance : ajuster l'aide, puis la retirer (étayage).",
+      src: "Module 5, À retenir n°2 (diapos 66 et 76)" },
+    { id: "v6", txt: "La qualité de l'attachement dans la petite enfance détermine le devenir de l'enfant.", rep: "F",
+      expl: "L'attachement est un système relationnel. Ses associations avec le développement sont réelles mais modestes : jamais un destin.",
+      src: "Module 6, À retenir n°2 (diapos 83 et 93)" },
+    { id: "v7", txt: "La précarité agit sur le développement à travers des mécanismes concrets du quotidien.", rep: "V",
+      expl: "Précarité et adversité agissent par des médiateurs concrets, pas par une caractéristique des parents. Il ne faut pas les « biologiser ».",
+      src: "Module 9, À retenir n°3 (diapos 122 et 133)" },
+    { id: "v8", txt: "Pour les écrans, seule la durée d'exposition compte.", rep: "F",
+      expl: "Le contexte d'usage compte aussi : contenu, usage partagé avec l'adulte, écran en arrière-plan, activités remplacées.",
+      src: "Module 10, À retenir n°3 (diapos 140 et 145)" }
+  ],
+  tnd: [
+    { id: "t1", txt: "Sami, 5 ans, est agité en classe et fait des colères le soir depuis la naissance de sa sœur, il y a quatre mois. Ses conduites apparaissant à l'école et à la maison, la priorité est d'orienter vers un diagnostic.", rep: "F",
+      expl: "La présence dans deux lieux ne suffit pas. L'apparition est récente et suit un événement de vie : plusieurs lectures restent ouvertes (transition familiale, sommeil, exigences de la classe). On observe, on ajuste, on réévalue ; on oriente si les signes se combinent, persistent et retentissent.",
+      src: "Module 12, diapos 167 et 173 ; module 1, diapo 17 (temporalité)" },
+    { id: "t2", txt: "Deux enfants exposés à la même adversité précoce suivent des trajectoires très différentes : c'est l'équifinalité.", rep: "F",
+      expl: "C'est la multifinalité : un même point de départ, des devenirs différents. L'équifinalité, c'est l'inverse : des chemins différents qui mènent à une même description.",
+      src: "Module 1, diapo 12 ; À retenir n°3 (diapo 18)" },
+    { id: "t3", txt: "Un écart net dans un seul domaine, stable depuis plusieurs mois mais sans gêne dans la vie quotidienne, réunit les critères d'un signal de vigilance.", rep: "F",
+      expl: "Il n'y a ici que la persistance. Il manque la combinaison (plusieurs signes ou domaines) et le retentissement (gêne au quotidien). On surveille et on réévalue.",
+      src: "Module 12, diapo 167 ; À retenir n°3 (diapo 175)" },
+    { id: "t4", txt: "Même quand l'examen de l'enfant est rassurant, une inquiétude persistante des parents reste un signe d'appel.", rep: "V",
+      expl: "Principe de la Haute Autorité de santé (2020) repris dans le cours : toute inquiétude parentale est un signe d'appel.",
+      src: "Module 12, diapo 167 (HAS, 2020)" },
+    { id: "t5", txt: "Un enfant de 16 mois, en bonne santé, qui ne marche pas encore seul est en dehors de la fenêtre de l'OMS.", rep: "F",
+      expl: "Dans l'étude de l'OMS, la marche seule s'acquiert entre 8 et 18 mois environ. À 16 mois, l'enfant est dans la fenêtre : on suit sa progression plutôt qu'une date.",
+      src: "Module 4, diapo 48 ; À retenir n°2 (diapo 60)" },
+    { id: "t6", txt: "Noé est né deux mois avant terme. Il a 12 mois : on compare ses acquisitions aux repères de 10 mois.", rep: "V",
+      expl: "Avant 2 ans, on utilise l'âge corrigé (âge réel moins l'avance) : 12 − 2 = 10 mois. Sinon, on prendrait pour un retard ce qui relève de la prématurité.",
+      src: "Module 1, diapo 10 ; module 3, À retenir n°2 (diapo 44)" },
+    { id: "t7", txt: "Inès, 3 ans, parle arabe à la maison et français à l'école, où elle dit peu de mots. Pour repérer un trouble du langage, on évalue d'abord son français, langue de l'école.", rep: "F",
+      expl: "Le plurilinguisme n'est pas une cause de retard. Il faut évaluer toutes les langues de l'enfant : peu de mots en français ne dit rien de sa langue de la maison.",
+      src: "Module 7, diapo 100 ; À retenir n°4 (diapo 103)" },
+    { id: "t8", txt: "Un score global dans la moyenne n'exclut pas une difficulté importante dans un domaine particulier.", rep: "V",
+      expl: "Un score global peut masquer de grands écarts entre sous-domaines. Un score n'est pas un enfant.",
+      src: "Module 2, diapo 28 ; À retenir n°4 (diapo 31)" },
+    { id: "t9", txt: "Un enfant qui manque de sommeil est surtout somnolent ; s'il est agité, il faut donc chercher une autre explication.", rep: "F",
+      expl: "Chez l'enfant, un manque de sommeil peut se traduire par de l'agitation plutôt que par de la somnolence. C'est une hypothèse à examiner avant de lire l'agitation comme le signe d'un trouble.",
+      src: "Module 11, diapo 155" }
+  ],
+  auto: [
+    { id: "s1", txt: "Expliquer ce qu'est un trouble du neurodéveloppement (TND)" },
+    { id: "s2", txt: "Distinguer une variation ordinaire d'un signal de vigilance" },
+    { id: "s3", txt: "Citer d'autres explications possibles à une agitation avant de penser à un TDAH" },
+    { id: "s4", txt: "Dire ce qui distingue le repérage et l'orientation (rôle du psychomotricien) du diagnostic" }
+  ],
+  autoEchelle: ["Pas du tout", "Un peu", "Plutôt", "Tout à fait"],
+  ado: [
+    { id: "a1", txt: "Le cerveau continue de se réorganiser pendant toute l'adolescence.", rep: "V",
+      expl: "Pendant la deuxième décennie, les réseaux cérébraux se spécialisent et s'intègrent. C'est une réorganisation, pas un cerveau « inachevé ».",
+      src: "Module 11, diapo 149" },
+    { id: "a2", txt: "Les adolescents prennent des risques parce que leur cerveau « émotionnel » est trop actif et leur cortex préfrontal « éteint ».", rep: "F",
+      expl: "C'est une caricature (neuromythe). La prise de risque est une conduite multifactorielle, qui dépend du contexte.",
+      src: "Module 11, diapo 150 ; module 5, diapo 74" },
+    { id: "a3", txt: "La prise de risque à l'adolescence est souvent adaptative.", rep: "V",
+      expl: "Ce n'est pas un « défaut de cerveau » : c'est une conduite multifactorielle, souvent adaptative.",
+      src: "Module 11, À retenir n°2 (diapos 150 et 159)" },
+    { id: "a4", txt: "La présence des pairs augmente davantage la prise de risque chez l'adolescent que chez l'adulte.", rep: "V",
+      expl: "Dans l'étude de Gardner et Steinberg, l'effet des pairs est plus fort chez les adolescents et les jeunes adultes que chez les adultes.",
+      src: "Module 11, diapo 150" },
+    { id: "a5", txt: "La puberté transforme le corps mais ne touche pas la coordination motrice.", rep: "F",
+      expl: "La croissance pubertaire rapide peut perturber pour un temps la coordination et l'image du corps. La puberté remanie les repères moteurs.",
+      src: "Module 11, À retenir n°1 (diapos 148 et 159)" },
+    { id: "a6", txt: "À l'adolescence, l'endormissement devient naturellement plus tardif.", rep: "V",
+      expl: "Le sommeil et les rythmes se réorganisent : c'est le retard de phase. Ce n'est pas seulement une question de discipline.",
+      src: "Module 11, diapos 148 et 155" },
+    { id: "a7", txt: "Au collège, la relation avec les enseignants pèse peu sur le développement de l'adolescent.", rep: "F",
+      expl: "L'école est un milieu de développement. Une relation positive avec un adulte de l'école est associée à plus d'appartenance et à moins de victimisation.",
+      src: "Module 11, À retenir n°3 (diapos 152 et 159)" }
+  ],
+  adoThemes: ["Puberté et image du corps", "Sommeil et rythmes", "Cerveau et fonctions exécutives",
+              "Prise de risque", "Pairs, identité, autonomie", "École et appartenance"],
+  notions: [
+    "Vocabulaire des trajectoires (équifinalité, multifinalité, cascade…)",
+    "Modèle transactionnel et approche multifactorielle",
+    "Méthodes : association, causalité, médiateur, modérateur",
+    "Lire une étude et une taille d'effet",
+    "« Un score n'est pas un enfant » (erreur de mesure)",
+    "Repères d'âge de 0 à 6 ans (critère des 75 %)",
+    "Développement moteur (systèmes dynamiques, fenêtres, cascades)",
+    "Wallon : émotion, tonus et action",
+    "Piaget, Vygotsky, Bruner",
+    "Attention, mémoire, fonctions exécutives",
+    "Plasticité et périodes sensibles",
+    "Attachement (Bowlby, Ainsworth)",
+    "Accordage affectif, synchronie, Still-Face",
+    "Théorie de l'esprit et débuts de la moralité",
+    "Développement du langage",
+    "Le jeu",
+    "Modèle bioécologique, précarité, adversité",
+    "Écrans et environnements physiques",
+    "Variations normales et signaux de vigilance",
+    "Formulation développementale"
+  ],
+  ouverte: "Pour préparer les prochains cours : une question, une attente, une remarque ?"
+};
+</script>
+<script>
+"use strict";
+document.getElementById("nojs").remove();
+const KEY = "quiz-besoins-v1";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let S = { step: 0, nom: "", r: {}, c: {}, s: {}, th: [], nf: [], na: [], autre: "", o: "", sent: false };
+try { const x = JSON.parse(localStorage.getItem(KEY)); if (x && typeof x === "object") S = Object.assign(S, x); } catch (e) {}
+["r","c","s"].forEach(k => { if (!S[k] || typeof S[k] !== "object" || Array.isArray(S[k])) S[k] = {}; });
+["th","nf","na"].forEach(k => { if (!Array.isArray(S[k])) S[k] = []; });
+["nom","autre","o"].forEach(k => { if (typeof S[k] !== "string") S[k] = ""; });
+if (!S.id) S.id = Math.random().toString(36).slice(2, 10);
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+function vf(list, el, withConf, offset) {
+  el.innerHTML = list.map((q, i) => `
+    <div class="q" data-id="${q.id}">
+      <div class="t"><span class="num">${offset + i + 1}.</span>${esc(q.txt)}</div>
+      <div class="row" role="group" aria-label="Réponse">
+        ${["V:Vrai","F:Faux","?:Je ne sais pas"].map(o => { const [k,l] = o.split(":");
+          return `<button class="opt" data-k="r" data-v="${k}" aria-pressed="${S.r[q.id]===k}">${l}</button>`; }).join("")}
+      </div>
+      ${withConf ? `<div class="conf ${S.r[q.id] && S.r[q.id] !== "?" ? "" : "hide"}" role="group" aria-label="Certitude">
+        Je suis :
+        <button class="opt" data-k="c" data-v="1" aria-pressed="${S.c[q.id]===1}">sûr(e)</button>
+        <button class="opt" data-k="c" data-v="0" aria-pressed="${S.c[q.id]===0}">pas sûr(e)</button></div>` : ""}
+    </div>`).join("");
+}
+function render() {
+  vf(Q.vu, $("#l-vu"), true, 0);
+  vf(Q.tnd, $("#l-tnd"), true, 0);
+  vf(Q.ado, $("#l-ado"), false, 0);
+  $("#l-auto").innerHTML = Q.auto.map(q => `
+    <div class="q" data-id="${q.id}"><div class="t">${esc(q.txt)}</div>
+      <div class="row" role="group">${Q.autoEchelle.map((l, k) =>
+        `<button class="opt" data-k="s" data-v="${k+1}" aria-pressed="${S.s[q.id]===k+1}">${l}</button>`).join("")}</div></div>`).join("");
+  $("#l-themes").innerHTML = Q.adoThemes.map((t, i) =>
+    `<button class="chip" data-th="${i}" aria-pressed="${S.th.includes(i)}">${esc(t)}</button>`).join("");
+  $("#l-notions").innerHTML = Q.notions.map((n, i) => `
+    <div class="nrow"><span>${esc(n)}</span>
+      <button class="opt f" data-n="nf" data-i="${i}" aria-pressed="${S.nf.includes(i)}">Floue</button>
+      <button class="opt" data-n="na" data-i="${i}" aria-pressed="${S.na.includes(i)}">À approfondir</button></div>`).join("");
+  $("#lbl-ouverte").innerHTML = `<b>${esc(Q.ouverte)}</b> <span class="mute">(facultatif)</span>`;
+  $("#nom").value = S.nom; $("#autre").value = S.autre; $("#ouverte").value = S.o;
+}
+render();
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b || S.sent) return;
+  const q = b.closest(".q");
+  if (b.dataset.k && q) {
+    const id = q.dataset.id, k = b.dataset.k, v = k === "r" ? b.dataset.v : +b.dataset.v;
+    S[k][id] = v;
+    if (k === "r") { const cf = q.querySelector(".conf"); if (cf) { cf.classList.toggle("hide", v === "?"); if (v === "?") delete S.c[id]; } }
+    b.parentElement.querySelectorAll(".opt").forEach(o => o.setAttribute("aria-pressed", o === b));
+    if (k === "r" && v === "?") q.querySelectorAll(".conf .opt").forEach(o => o.setAttribute("aria-pressed", false));
+    save(); progress(); return;
+  }
+  if (b.dataset.th !== undefined) { tog(S.th, +b.dataset.th, b); return; }
+  if (b.dataset.n) { tog(S[b.dataset.n], +b.dataset.i, b); return; }
+});
+function tog(arr, i, b) { const p = arr.indexOf(i); p < 0 ? arr.push(i) : arr.splice(p, 1); b.setAttribute("aria-pressed", p < 0); save(); }
+$("#nom").addEventListener("input", e => { S.nom = e.target.value; save(); });
+$("#autre").addEventListener("input", e => { S.autre = e.target.value; save(); });
+$("#ouverte").addEventListener("input", e => { S.o = e.target.value; save(); });
+
+const LAST = 7;
+function manquants() {
+  const m = [];
+  [...Q.vu, ...Q.tnd, ...Q.ado].forEach(q => { if (!S.r[q.id]) m.push(q.id); });
+  Q.auto.forEach(q => { if (!S.s[q.id]) m.push(q.id); });
+  return m;
+}
+function progress() {
+  const tot = Q.vu.length + Q.tnd.length + Q.ado.length + Q.auto.length;
+  const done = tot - manquants().length;
+  $("#bar").style.width = Math.round(100 * done / tot) + "%";
+  $("#cpt").textContent = done + " / " + tot + " réponses";
+}
+function go(n) {
+  if (S.sent && n < 7) n = 7;
+  S.step = Math.max(0, Math.min(LAST, n)); save();
+  document.querySelectorAll("section[data-step]").forEach(s => s.classList.toggle("hide", +s.dataset.step !== S.step));
+  $("#prev").style.visibility = S.step === 0 || S.step >= 6 ? "hidden" : "visible";
+  if (S.step === 6) { $("#prev").style.visibility = "visible"; }
+  $("#next").textContent = S.step === 0 ? "Commencer" : S.step === 5 ? "Terminer" : "Suivant";
+  $("#next").style.visibility = S.step >= 6 ? "hidden" : "visible";
+  if (S.step === 6) prepEnvoi();
+  if (S.step === 7) { corrige(); $("#nav").classList.add("hide"); }
+  progress(); window.scrollTo(0, 0);
+  const h = document.querySelector(`section[data-step="${S.step}"] h1, section[data-step="${S.step}"] h2`);
+  if (h && go.ready) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+  go.ready = true;
+}
+$("#next").onclick = () => go(S.step + 1);
+$("#prev").onclick = () => go(S.step - 1);
+
+function payload() {
+  return { v: 1, id: S.id, d: new Date().toISOString().slice(0, 16), n: S.nom.trim(), r: S.r, c: S.c, s: S.s,
+           th: S.th, nf: S.nf, na: S.na, a: S.autre.trim(), o: S.o.trim() };
+}
+
+/* Enregistrer un fichier, y compris sur iPad : feuille de partage si possible, sinon téléchargement. */
+async function enregistrer(nom, texte, type) {
+  try {
+    if (window.claude && typeof window.claude.use === "function") {
+      const d = await window.claude.use("downloads");
+      if (d) { await d.save({ filename: nom, data: texte }); return true; }
+    }
+  } catch (e) { if (e && e.code === "declined") return false; }
+  try {
+    const f = new File([texte], nom, { type });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: nom }); return true; }
+  } catch (e) { if (e && e.name === "AbortError") return false; }
+  try {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([texte], { type })); a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000); return true;
+  } catch (e) { return false; }
+}
+/* Confirmation en deux touches (les boîtes confirm() sont bloquées dans certains aperçus). */
+function deuxTouches(btn, libelle, action) {
+  const l0 = btn.textContent; let arme = false, t;
+  btn.addEventListener("click", () => {
+    if (!arme) { arme = true; btn.textContent = libelle; t = setTimeout(() => { arme = false; btn.textContent = l0; }, 5000); return; }
+    clearTimeout(t); arme = false; btn.textContent = l0; action();
+  });
+}
+const b64 = s => btoa(unescape(encodeURIComponent(s)));
+function prepEnvoi() {
+  const m = manquants();
+  $("#manque").classList.toggle("hide", !m.length);
+  if (m.length) $("#manque").textContent = m.length + " question(s) sans réponse. Vous pouvez revenir en arrière, ou envoyer tel quel.";
+  const code = "QB1." + b64(JSON.stringify(payload()));
+  $("#code").value = code;
+  $("#mail").href = "mailto:?subject=" + encodeURIComponent("Questionnaire psychologie du développement") + "&body=" + encodeURIComponent("Mes réponses (code à importer) :\n\n" + code);
+}
+function marque() { $("#voir").disabled = false; }
+$("#mail").addEventListener("click", marque);
+$("#dl").onclick = async () => {
+  const p = payload(); const txt = JSON.stringify(p);
+  const nom = (p.n || "anonyme").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "anonyme";
+  if (await enregistrer("questionnaire-" + nom + "-" + Date.now().toString(36).slice(-4) + ".json", txt, "application/json")) marque();
+};
+$("#cp").onclick = async () => {
+  const ta = $("#code"); const t = ta.value;
+  try { await navigator.clipboard.writeText(t); $("#cp").textContent = "Code copié ✓"; }
+  catch (e) { ta.focus(); ta.select(); ta.setSelectionRange(0, t.length);
+    let ok = false; try { ok = document.execCommand("copy"); } catch (e2) {}
+    $("#cp").textContent = ok ? "Code copié ✓" : "Code sélectionné : touchez « Copier »"; }
+  marque();
+};
+$("#voir").onclick = () => { S.sent = true; save(); go(7); };
+deuxTouches($("#nouveau"), "Touchez encore pour effacer (vos réponses sont-elles bien envoyées ?)", () => {
+  try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); });
+
+function corrige() {
+  const lab = { V: "Vrai", F: "Faux", "?": "Je ne sais pas" };
+  const bloc = (titre, list) => `<h3>${titre}</h3>` + list.map((q, i) => {
+    const r = S.r[q.id]; const cls = !r || r === "?" ? "dk" : r === q.rep ? "good" : "bad";
+    const ic = !r ? "Sans réponse" : r === "?" ? "Je ne sais pas" : r === q.rep ? "✓ Juste" : "✗ À revoir";
+    return `<div class="res ${cls}"><div><b>${i + 1}. ${esc(q.txt)}</b></div>
+      <div><span class="${cls === "good" ? "ok" : cls === "bad" ? "ko" : ""}">${ic}</span> · Réponse : <b>${lab[q.rep]}</b></div>
+      <p>${esc(q.expl)}</p><div class="src">${esc(q.src)}</div></div>`; }).join("");
+  const sc = l => l.filter(q => S.r[q.id] === q.rep).length + " / " + l.length;
+  $("#corr").innerHTML = `<div class="card"><b>Ce que nous avons vu :</b> ${sc(Q.vu)} · <b>TND et diagnostic :</b> ${sc(Q.tnd)} · <b>Adolescence :</b> ${sc(Q.ado)}
+    <p class="mute">Ces chiffres ne sont pas une note. Les « À revoir » marqués « sûr(e) » sont les plus importants à reprendre.</p></div>`
+    + bloc("Ce que nous avons déjà vu", Q.vu) + bloc("TND et diagnostic différentiel", Q.tnd) + bloc("L'adolescence (traitée au prochain cours)", Q.ado);
+}
+go(S.step);
+</script>
+</body>
+</html>
