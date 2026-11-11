@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--ipad-compat:debut · bloc inséré par outils/ipad/injecter.py, à modifier dans outils/ipad/compat.html seulement-->
+<noscript><style>body::before{content:"Cette page a besoin de JavaScript. Ouvrez le lien dans votre navigateur (Safari, Chrome, Edge…), pas dans l’aperçu du mail.";display:block;padding:14px 16px;background:#fff3cd;color:#5c3c00;font:16px/1.4 -apple-system,system-ui,sans-serif}</style></noscript>
+<style>html{-webkit-text-size-adjust:100%}button,a,input,select,label,summary,[role=button],[draggable],[tabindex]{touch-action:manipulation}#ipad-err{position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#fff3cd;color:#5c3c00;border:2px solid #b07d00;border-radius:10px;padding:10px 14px;font:15px/1.4 -apple-system,system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.25)}#ipad-err button{margin-left:8px;font:inherit;padding:4px 12px;border-radius:8px;border:1px solid #b07d00;background:#fff}#ipad-err small{display:block;opacity:.75;margin-top:4px}#ipad-info{position:fixed;left:8px;right:8px;top:8px;z-index:2147483647;background:#e1edf6;color:#123a5c;border:2px solid #1d5f8f;border-radius:10px;padding:10px 14px;font:15px/1.4 -apple-system,system-ui,sans-serif}</style>
+<script>
+/* Compatibilité tablettes : iPad (Safari, iPadOS 15+), Android (Oppo, Samsung… : Chrome et navigateurs du fabricant), Windows (Surface : Edge, Chrome) :
+   1. erreur bloquante : encadré visible avec un bouton Recharger (sauf si la page a déjà le sien, window.onerror) ;
+   2. copie dans le presse-papiers : solution de secours quand navigator.clipboard manque ou refuse (lien http, fichier local) ;
+   3. plein écran : noms préfixés webkit de Safari avant 16.4 ;
+   4. fichiers enregistrés (a.download sur un blob) : sur iPad/iPhone, feuille de partage (Enregistrer dans Fichiers, Mail, AirDrop),
+      plus fiable que le téléchargement, surtout dans le navigateur intégré d'une appli de mail ; ailleurs téléchargement normal ;
+      dans le navigateur intégré d'une appli Android (Outlook, Gmail…), où les téléchargements échouent, un bandeau dit d'ouvrir dans Chrome ;
+   5. import de fichiers : iOS et Android grisent parfois les .json/.csv filtrés par « accept », le filtre est retiré au moment du choix. */
+(function () {
+  var w = window, d = document, n = navigator;
+  var ios = /iP(ad|hone|od)/.test(n.userAgent) || (n.platform === "MacIntel" && n.maxTouchPoints > 1);
+  var android = /Android/i.test(n.userAgent), webview = android && /; wv\)|FBAN|FBAV|Instagram|Line\//.test(n.userAgent);
+  function boite(msg) {
+    try {
+      if (w.onerror || d.getElementById("ipad-err")) return;
+      var b = d.createElement("div"); b.id = "ipad-err"; b.setAttribute("role", "alert");
+      b.innerHTML = "<b>Un problème empêche cette page de fonctionner.</b> Rechargez-la ; si cela continue, ouvrez le lien dans votre navigateur (Safari, Chrome, Edge). <button type=\"button\">Recharger</button><small></small>";
+      b.querySelector("small").textContent = String(msg || "").slice(0, 160);
+      b.querySelector("button").onclick = function () { location.reload(); };
+      (d.body || d.documentElement).appendChild(b);
+    } catch (e) {}
+  }
+  w.addEventListener("error", function (e) { if (e && e.message) boite(e.message); });
+  w.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason, nom = r && r.name;
+    if (nom === "AbortError" || nom === "NotAllowedError" || nom === "SecurityError") return;   // partage annulé, copie refusée : sans gravité
+    boite(r && (r.message || r));
+  });
+  function copieSecours(t) {
+    var a = d.createElement("textarea"), ok = false;
+    a.value = t; a.setAttribute("readonly", ""); a.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px";
+    d.body.appendChild(a); a.focus(); a.select(); try { a.setSelectionRange(0, t.length); ok = d.execCommand("copy"); } catch (e) {}
+    a.remove(); return ok;
+  }
+  try {
+    var c = n.clipboard;
+    if (!c || !c.writeText) {
+      Object.defineProperty(n, "clipboard", { configurable: true, value: { writeText: function (t) {
+        return copieSecours(String(t)) ? Promise.resolve() : Promise.reject(new Error("copie impossible"));
+      } } });
+    } else {
+      var ecrire = c.writeText.bind(c);
+      c.writeText = function (t) { return ecrire(t).catch(function (e) { if (!copieSecours(String(t))) throw e; }); };
+    }
+  } catch (e) {}
+  var E = w.Element && Element.prototype, D = w.Document && Document.prototype;
+  if (E && !E.requestFullscreen && E.webkitRequestFullscreen) {
+    E.requestFullscreen = function () { try { this.webkitRequestFullscreen(); return Promise.resolve(); } catch (e) { return Promise.reject(e); } };
+    if (!("fullscreenElement" in d)) Object.defineProperty(D, "fullscreenElement", { configurable: true, get: function () { return this.webkitFullscreenElement || null; } });
+    if (!D.exitFullscreen && D.webkitExitFullscreen) D.exitFullscreen = function () { this.webkitExitFullscreen(); return Promise.resolve(); };
+  }
+  d.addEventListener("click", function (e) {   // import : sans filtre sur tablette tactile
+    var t = e.target;
+    if ((ios || android) && t && t.tagName === "INPUT" && t.type === "file" && t.hasAttribute("accept")) t.removeAttribute("accept");
+  }, true);
+  function info() {   // navigateur intégré d'une appli Android : prévenir dès l'ouverture, avant toute saisie
+    try {
+      if (d.getElementById("ipad-info")) return;
+      var i = d.createElement("div"); i.id = "ipad-info"; i.setAttribute("role", "status");
+      i.textContent = "Ouvrez cette page dans Chrome avant de commencer (menu ⋮ puis « Ouvrir dans Chrome ») : ici, les fichiers ne peuvent pas être enregistrés. Toucher pour fermer.";
+      i.onclick = function () { i.remove(); }; d.body.appendChild(i);
+    } catch (e) {}
+  }
+  if (webview) { if (d.body) info(); else d.addEventListener("DOMContentLoaded", info); }
+  if (!ios && !webview) return;
+  var blobs = {}, creer = URL.createObjectURL;
+  URL.createObjectURL = function (o) { var u = creer.apply(URL, arguments); if (o instanceof Blob) blobs[u] = o; return u; };
+  var cliquer = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    var a = this, b = a.hasAttribute("download") && blobs[a.href];
+    if (b && webview) info();
+    if (b && ios && n.share && n.canShare && w.File) {
+      try {
+        var f = new File([b], a.getAttribute("download") || "fichier", { type: b.type || "application/octet-stream" });
+        if (n.canShare({ files: [f] })) {
+          n.share({ files: [f] }).catch(function (e) { if (!e || e.name !== "AbortError") cliquer.call(a); });
+          return;
+        }
+      } catch (e) {}
+    }
+    return cliquer.call(a);
+  };
+})();
+</script>
+<!--ipad-compat:fin-->
+<title>Atelier lecture critique</title>
+<style>
+:root{--bg:#f7f6f2;--card:#fff;--ink:#1d2330;--mute:#5b6475;--line:#dcd9d0;--acc:#2f5d8a;--acc2:#e8eef5;--ok:#2e7d4f;--mid:#b7791f;--ko:#b03a2e;
+--t1:#dbeafe;--t2:#fde68a;--t3:#d1fae5;--t4:#fce7f3;--t5:#e9d5ff;--t6:#fed7aa;--t7:#ccfbf1;--t8:#fecaca}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#15181e;--card:#1e232b;--ink:#e8eaee;--mute:#a3abb9;--line:#343b47;--acc:#7fb0e0;--acc2:#24303f;
+--t1:#1e3a5f;--t2:#5c4a12;--t3:#14463a;--t4:#5a2140;--t5:#3f2b63;--t6:#5c3415;--t7:#134e4a;--t8:#5f2121}}
+:root[data-theme=dark]{--bg:#15181e;--card:#1e232b;--ink:#e8eaee;--mute:#a3abb9;--line:#343b47;--acc:#7fb0e0;--acc2:#24303f;
+--t1:#1e3a5f;--t2:#5c4a12;--t3:#14463a;--t4:#5a2140;--t5:#3f2b63;--t6:#5c3415;--t7:#134e4a;--t8:#5f2121}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 16px;position:sticky;top:0;z-index:5}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:1.25rem;margin:0}
+h2{font-size:1.1rem;margin:0 0 .6rem}
+h3{font-size:1rem;margin:1rem 0 .4rem}
+.sub{color:var(--mute);font-size:.9rem}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+select,button,textarea,input{font:inherit;color:inherit}
+select,textarea,input[type=text]{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+button{background:var(--acc2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.on{background:var(--acc);color:var(--card);border-color:var(--acc)}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+nav button{border-radius:999px}
+main{padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.hide{display:none!important}
+.ref{font-size:.9rem;color:var(--mute)}
+.ref a{color:var(--acc)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.tag{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:.85rem;cursor:pointer}
+.tag.sel{outline:2px solid var(--acc)}
+.s{cursor:pointer;border-radius:4px;padding:1px 2px;transition:background .15s}
+.s:hover{outline:1px dashed var(--acc)}
+.s.cur{outline:2px solid var(--acc)}
+.s .lab{font-size:.7rem;font-weight:600;color:var(--mute);margin-right:3px;vertical-align:super}
+mark.cv{background:none;color:inherit;border-bottom:2px solid var(--ko);font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+label.f{display:block;font-weight:600;font-size:.9rem;margin:.6rem 0 .2rem}
+textarea{width:100%;min-height:64px;resize:vertical}
+.q{border-top:1px solid var(--line);padding:10px 0}
+.q:first-child{border-top:0}
+.lv{display:flex;gap:6px;margin:6px 0}
+.lv button{font-size:.85rem;padding:3px 10px}
+.lv button.on[data-v=ok]{background:var(--ok);border-color:var(--ok);color:#fff}
+.lv button.on[data-v=mid]{background:var(--mid);border-color:var(--mid);color:#fff}
+.lv button.on[data-v=ko]{background:var(--ko);border-color:var(--ko);color:#fff}
+.hint{background:var(--acc2);border-left:3px solid var(--acc);padding:8px 10px;border-radius:6px;font-size:.9rem;margin-top:6px}
+.prof{display:none}
+body.teacher .prof{display:block}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+td,th{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+th{color:var(--mute);font-weight:600}
+.count{font-size:.85rem;color:var(--mute)}
+.pill{display:inline-block;font-size:.75rem;border-radius:999px;padding:1px 8px;background:var(--acc2);color:var(--acc);margin-left:6px}
+.legend{font-size:.85rem;color:var(--mute)}
+pre{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:.85rem;max-height:340px;overflow:auto}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Atelier lecture critique d'articles</h1>
+  <div class="sub">L2 psychomotricité · ISRP · découper, analyser, critiquer, transférer en clinique · parcours : Trajectoires → <b>lecture critique</b> → grille d'observation → projet expérimental</div>
+  <div class="bar">
+    <label for="art" class="sub">Article :</label>
+    <select id="art"></select>
+    <button id="mode" hidden title="Affiche ou masque le corrigé et les pistes de l'enseignant">Mode enseignant : non</button>
+    <button id="theme" title="Changer de thème">◐</button>
+  </div>
+  <nav id="tabs">
+    <button data-t="decouper" class="on">1. Découper</button>
+    <button data-t="analyser">2. Analyser</button>
+    <button data-t="critiquer">3. Critiquer</button>
+    <button data-t="synthese">4. Synthèse et clinique</button>
+    <button data-t="export">5. Exporter</button>
+  </nav>
+</div></header>
+
+<main class="wrap">
+
+<!-- 1. DÉCOUPER -->
+<section id="decouper">
+  <div class="card">
+    <h2 id="tTitle"></h2>
+    <div class="ref" id="tRef"></div>
+  </div>
+  <div class="card">
+    <h2>Découper le résumé</h2>
+    <p class="legend">Vos réponses restent enregistrées dans ce navigateur, séparément pour chaque article ; l'onglet 5 permet de tout copier.</p>
+    <p class="legend">1) Choisissez une étiquette. 2) Cliquez sur les phrases correspondantes. Cliquer de nouveau sur une phrase retire l'étiquette.</p>
+    <div class="tags" id="tagbar"></div>
+    <div class="bar">
+      <button id="cvBtn">Repérer le vocabulaire causal</button>
+      <button id="clearTags">Effacer le découpage</button>
+      <button id="showKey" class="prof" hidden>Afficher le corrigé</button>
+    </div>
+    <p id="abs" style="margin-top:12px"></p>
+    <p class="legend">Repérage du vocabulaire causal (diapo 22) : <i>improve, effective, enhance, effect, benefit…</i> Le plan d'étude autorise-t-il ces mots ?</p>
+  </div>
+</section>
+
+<!-- 2. ANALYSER -->
+<section id="analyser" class="hide">
+  <div class="card">
+    <h2>Fiche structure</h2>
+    <div class="grid" id="fiche"></div>
+  </div>
+</section>
+
+<!-- 3. CRITIQUER -->
+<section id="critiquer" class="hide">
+  <div class="card">
+    <h2>Grille de lecture critique en 8 questions (diapo 24)</h2>
+    <p class="legend">Pour chaque question, cotez la réponse (✓ claire · ~ partielle · ✗ absente ou problématique) et justifiez-la en une phrase.</p>
+    <div id="grille"></div>
+  </div>
+  <div class="card prof">
+    <h2>Pistes de l'enseignant</h2>
+    <ul id="pistes"></ul>
+  </div>
+</section>
+
+<!-- 4. SYNTHÈSE -->
+<section id="synthese" class="hide">
+  <div class="card">
+    <h2>Synthèse (10 lignes, en français, sans jargon)</h2>
+    <textarea id="syn" style="min-height:160px" data-k="syn"></textarea>
+    <div class="count" id="synCount"></div>
+  </div>
+  <div class="card">
+    <h2>Transfert en séance de psychomotricité</h2>
+    <label class="f">Ce que l'article change (ou non) dans ma pratique</label>
+    <textarea data-k="tr1"></textarea>
+    <label class="f">Ce que je m'interdis d'affirmer (aux parents, à l'équipe)</label>
+    <textarea data-k="tr2"></textarea>
+    <label class="f">Comment j'évaluerais l'effet chez un enfant (observable, ligne de base, mesure répétée)</label>
+    <textarea data-k="tr3"></textarea>
+    <label class="f">Limite principale, en une phrase</label>
+    <textarea data-k="tr4"></textarea>
+  </div>
+</section>
+
+<!-- 5. EXPORT -->
+<section id="export" class="hide">
+  <div class="card">
+    <h2>Exporter le travail du groupe</h2>
+    <div class="bar">
+      <button id="copy">Copier le texte</button>
+      <button id="reset">Tout effacer pour cet article</button>
+      <span class="count" id="msg"></span>
+    </div>
+    <pre id="out"></pre>
+  </div>
+</section>
+
+<p class="legend" style="text-align:center">Résumés reproduits depuis PubMed, articles en libre accès (licences à vérifier sur la page de l'éditeur). Lire le texte intégral via le lien PMC.</p>
+</main>
+
+<script>
+const TAGS=[["ctx","Contexte","--t1"],["obj","Objectif / question","--t2"],["pop","Population","--t3"],["met","Méthode / plan","--t4"],["mes","Mesures","--t5"],["res","Résultats","--t6"],["lim","Limites","--t8"],["ccl","Conclusion","--t7"]];
+const A={
+pf:{title:"Pérez-Fuster et al. (2025) — Réalité augmentée, connaissance du corps, imitation, attention conjointe",
+ref:'<i>Scientific Reports, 15</i>(1), 34966. <a href="https://doi.org/10.1038/s41598-025-19085-5" target="_blank" rel="noopener">DOI</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12504581/" target="_blank" rel="noopener">Texte intégral (PMC)</a> · Article original, ECR en escalier',
+abs:"Body knowledge, imitation, and joint attention are foundational for child development, yet many autistic children with intellectual disability struggle to acquire these skills. This study evaluated the effects of an educational intervention using Pictogram Room (PR), an open-access augmented reality (AR) technology program with games targeting these abilities. Twenty-three autistic children with intellectual disability (ages 7-14) from Spain, Bulgaria, and Türkiye participated. A stepped wedge randomized design was implemented across two groups. Over 27 sessions, delivered in their usual educational settings by their regular staff, participants showed significant and sustained improvements in body knowledge, imitation, and joint attention. This is the first AR-based intervention shown to simultaneously enhance these three core skills in this population. The program is brief, socially valid, and requires no specialized training, making it a promising tool for inclusive educational practice.",
+key:[],
+pistes:[]},
+tao:{title:"Tao et al. (2025) — Activité physique et fonctions cognitives dans les troubles du neurodéveloppement (méta-analyse en réseau)",
+ref:'<i>Int J Behav Nutr Phys Act, 22</i>(1), 6. <a href="https://doi.org/10.1186/s12966-024-01702-7" target="_blank" rel="noopener">DOI</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11731537/" target="_blank" rel="noopener">Texte intégral (PMC)</a> · Revue systématique et méta-analyse en réseau d\'ECR',
+abs:"Physical activity (PA) interventions have been shown to yield positive effects on cognitive functions. However, it is unclear which type of PA intervention is the most effective in children and adolescents with Neurodevelopmental Disorders (NDDs). This study aimed to compare the effectiveness of different types of PA interventions on cognitive functions in children and adolescents with NDDs, with additional analyses examining intervention effects across specific NDD types including attention-deficit/hyperactivity disorder (ADHD) and autism spectrum disorder (ASD). In this systematic review and network meta-analysis, seven databases (Web of Science, PubMed, Medline, APA PsycINFO, Embase, CINAHL, and SPORTDiscus) for randomized controlled trials from database inception to September 2023 were searched. Randomized controlled trials comparing the effectiveness of PA intervention with any non-pharmacological treatment or control group on cognitive functions in children and adolescents diagnosed with NDDs aged 5-17 years were included. Frequentist network meta-analyses were performed based on standardized mean differences (SMD) using random effects models to examine post-intervention differences in cognitive functions, including attention, memory, and executive functions. Intervention dropout was assessed as a measure of treatment acceptability. Thirty-one randomized controlled trials (n = 1,403, mean age 10.0 ± 1.9 years) with 66 arms were included in the network. Mind-body exercise (MBE; SMD = 1.91 for attention; 0.92 for executive functions), exergaming (SMD = 1.58 for attention; 0.97 for memory; 0.94 for executive functions), and multi-component physical activity (MPA; SMD = 0.79 for executive functions) were associated with moderate to substantial cognitive improvements compared with usual care, whereas the effectiveness of aerobic exercise (AE) was non-significant. Exergaming (SMD = 0.78, 95%CI 0.12 to 1.45) and MPA (SMD = 0.64, 95%CI 0.11 to 1.18) were more effective than AE for executive functions. When analyzing specific NDD types, exergaming lost its superiority over usual care for attention and memory in ADHD, nor for executive functions in ASD. Instead, MPA demonstrated significant benefits across these domains and populations. The certainty of evidence for these comparisons was very low to low. No significant differences in acceptability were observed among MBE, exergaming, and MPA. The findings in this study suggest that MBE, exergaming, and MPA were effective interventions for improving domain-specific cognitive functions in children and adolescents with NDDs. AE demonstrated non-significant effectiveness for all outcomes. MBE emerges as particularly advantageous for attention. MPA yielded consistent improvements in memory and executive functions across NDD types. Further high-quality randomized controlled trials of direct comparisons are needed to confirm and expand on the findings from this NMA. PROSPERO CRD42023409606.",
+key:[],
+pistes:[]},
+vds:{title:"Van Der Steen et al. (2025) — Chien vs chien robot : médiation animale chez des enfants autistes ou avec trisomie 21",
+ref:'<i>PLoS One, 20</i>(3), e0319939. <a href="https://doi.org/10.1371/journal.pone.0319939" target="_blank" rel="noopener">DOI</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11922239/" target="_blank" rel="noopener">Texte intégral (PMC)</a> · ECR avec contrôle actif<br><small>Cadrage : la médiation animale ne fait pas partie de la pratique courante du psychomotricien. L’article est retenu pour son groupe contrôle actif (chien robot) et ses mesures d’accordage et de régulation émotionnelle (diapos 84-85).</small>',
+abs:"Research with controlled or crossover designs in animal-assisted therapy have largely used control groups receiving no treatment or treatment as usual, which can potentially inflate the effects of these interventions. It is therefore not always clear whether this type of therapy has a positive effect on, for example, the social skills of children with special support needs. To address this, the current study compared children (7-16 years, n = 65) with autism or Down syndrome who received five sessions of dog-assisted therapy (n = 24; 9 female) with an active control group who received five similar sessions of robot dog-assisted therapy (n = 21; 8 female) and a no-treatment control group (n = 20; 8 female). The robot dog was capable of performing autonomous behavior and responding to the child's actions and verbalizations. Using parental questionnaires, we assessed children's social and emotional skills before and after the therapy sessions or waiting period and included a follow-up measurement after 4-6 weeks. On a group level, multilevel analyses showed that children who received dog-assisted therapy improved significantly more in terms of emotional attunement and emotion regulation than children in the two other conditions. No significant differences were found for social confidence, conversational attunement, social cognition, and social motivation. Change from post-test to follow-up was also less apparent. Yet, on a more individual level, when looking at the Reliable Change Index (RCI), most of the highest RCIs (within the 90th percentile) were found in the dog-assisted therapy group. In contrast, most of the lowest RCIs (within the 10th percentile) were found in the robot-assisted group. We discuss the pros and cons of a more individualized approach in this field of study and propose a possible alternative by focusing on interaction dynamics.",
+key:[],
+pistes:[]}
+};
+const FICHE=[["q","Question de recherche"],["h","Hypothèse (explicite ou implicite)"],["plan","Plan d'étude et statut de la source (diapos 20-21)"],["pop","Population (âge, diagnostic, effectif, pays)"],["int","Intervention / exposition et comparateur"],["mes","Mesures (quoi, comment, par qui)"],["res","Résultats principaux (avec tailles d'effet)"],["limA","Limites annoncées par les auteurs"]];
+const GRILLE=[["Q0","Question préalable : type de publication et accès au texte intégral ?"],["Q1","Quelle population ?"],["Q2","À quel âge, dans quel contexte ?"],["Q3","Comment le construit est-il mesuré ?"],["Q4","Transversale ou longitudinale ?"],["Q5","L'exposition précède-t-elle le résultat ?"],["Q6","Quels facteurs de confusion sont contrôlés ?"],["Q7","Quelle amplitude, quelle incertitude ?"],["Q8","Quelle portée fonctionnelle (vie quotidienne, participation) ?"]];
+const CV=/\b(improv\w*|effective\w*|effects?|enhanc\w*|benefi\w*|promising|advantageous|superiority|showed|shown)\b/gi;
+
+let cur="pf",curTag="ctx",S={},cvOn=false,keyOn=false;
+const $=s=>document.querySelector(s);
+function load(id){try{return JSON.parse(localStorage.getItem("lc-"+id))||{}}catch(e){return {}}}
+function save(){try{localStorage.setItem("lc-"+cur,JSON.stringify(S))}catch(e){}}
+function sentences(t){return t.replace(/\.\s+(?=[A-Z])/g,".\u0001").split("\u0001")}  /* sans lookbehind : Safari < 16.4 ne le connaît pas */
+function esc(t){return t.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function tagOf(k){return TAGS.find(t=>t[0]===k)}
+
+function renderAbs(){
+  const ss=sentences(A[cur].abs);S.tags=S.tags||{};
+  const key={};ss.forEach((s,i)=>{const m=A[cur].key.find(k=>s.includes(k[0]));if(m)key[i]=m[1]});
+  $("#abs").innerHTML=ss.map((s,i)=>{
+    const tg=keyOn?key[i]:S.tags[i];const t=tg&&tagOf(tg);
+    let txt=esc(s);if(cvOn)txt=txt.replace(CV,'<mark class="cv">$1</mark>');
+    return `<span class="s" data-i="${i}" style="${t?`background:var(${t[2]})`:""}">${t?`<span class="lab">${t[1]}</span>`:""}${txt}</span> `}).join("");
+}
+function renderTags(){
+  $("#tagbar").innerHTML=TAGS.map(t=>`<span class="tag ${t[0]===curTag?"sel":""}" data-k="${t[0]}" style="background:var(${t[2]})">${t[1]}</span>`).join("");
+}
+function renderFiche(){
+  $("#fiche").innerHTML=FICHE.map(f=>`<div><label class="f">${f[1]}</label><textarea data-k="f_${f[0]}"></textarea></div>`).join("");
+}
+function renderGrille(){
+  $("#grille").innerHTML=GRILLE.map(g=>`<div class="q"><b>${g[0]==="Q0"?"":g[0].slice(1)+". "}${g[1]}</b>
+  <div class="lv" data-q="${g[0]}"><button data-v="ok">✓ claire</button><button data-v="mid">~ partielle</button><button data-v="ko">✗ absente</button></div>
+  <textarea data-k="g_${g[0]}" placeholder="Justification en une phrase…"></textarea></div>`).join("");
+  $("#pistes").innerHTML=A[cur].pistes.map(p=>`<li>${p}</li>`).join("");
+}
+function fill(){
+  document.querySelectorAll("textarea[data-k]").forEach(t=>t.value=S[t.dataset.k]||"");
+  document.querySelectorAll(".lv").forEach(l=>l.querySelectorAll("button").forEach(b=>b.classList.toggle("on",S["v_"+l.dataset.q]===b.dataset.v)));
+  synCount();
+}
+function synCount(){const v=$("#syn").value.trim();const w=v?v.split(/\s+/).length:0;const l=v?v.split(/\n/).length:0;$("#synCount").textContent=`${w} mots · ${l} ligne(s) · cible : environ 10 lignes`}
+function render(){
+  $("#tTitle").textContent=A[cur].title;$("#tRef").innerHTML=A[cur].ref;
+  renderTags();renderAbs();renderGrille();fill();
+}
+function exportText(){
+  const a=A[cur],ss=sentences(a.abs);let o=`ARTICLE : ${a.title}\n\n1. DÉCOUPAGE DU RÉSUMÉ\n`;
+  TAGS.forEach(t=>{const n=Object.entries(S.tags||{}).filter(e=>e[1]===t[0]).map(e=>+e[0]).sort((x,y)=>x-y);if(n.length)o+=`- ${t[1]} : ${n.map(i=>"« "+ss[i].slice(0,70)+"… »").join(" ; ")}\n`});
+  o+="\n2. FICHE STRUCTURE\n";FICHE.forEach(f=>o+=`- ${f[1]} : ${S["f_"+f[0]]||"—"}\n`);
+  o+="\n3. GRILLE CRITIQUE\n";const L={ok:"✓",mid:"~",ko:"✗"};GRILLE.forEach(g=>o+=`- ${g[1]} [${L[S["v_"+g[0]]]||" "}] ${S["g_"+g[0]]||""}\n`);
+  o+=`\n4. SYNTHÈSE\n${S.syn||"—"}\n\n5. TRANSFERT CLINIQUE\n- Ce que ça change : ${S.tr1||"—"}\n- Ce que je m'interdis d'affirmer : ${S.tr2||"—"}\n- Évaluer l'effet chez un enfant : ${S.tr3||"—"}\n- Limite principale : ${S.tr4||"—"}\n`;
+  $("#out").textContent=o;return o;
+}
+
+// init
+$("#art").innerHTML=Object.entries(A).map(([k,v])=>`<option value="${k}">${v.title.split(" — ")[0]}</option>`).join("");
+renderFiche();
+S=load(cur);render();
+
+$("#art").onchange=e=>{cur=e.target.value;S=load(cur);keyOn=false;$("#showKey").textContent="Afficher le corrigé";render();exportText()};
+$("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll("main>section").forEach(s=>s.classList.toggle("hide",s.id!==b.dataset.t));
+  if(b.dataset.t==="export")exportText();window.scrollTo(0,0)};
+$("#tagbar").onclick=e=>{const t=e.target.closest(".tag");if(!t)return;curTag=t.dataset.k;renderTags()};
+$("#abs").onclick=e=>{if(keyOn)return;const s=e.target.closest(".s");if(!s)return;const i=s.dataset.i;S.tags=S.tags||{};
+  if(S.tags[i]===curTag)delete S.tags[i];else S.tags[i]=curTag;save();renderAbs()};
+$("#cvBtn").onclick=e=>{cvOn=!cvOn;e.target.classList.toggle("on",cvOn);renderAbs()};
+$("#clearTags").onclick=()=>{S.tags={};save();renderAbs()};
+$("#showKey").onclick=e=>{keyOn=!keyOn;e.target.textContent=keyOn?"Revenir à mon découpage":"Afficher le corrigé";renderAbs()};
+$("#mode").onclick=e=>{const on=document.body.classList.toggle("teacher");e.target.textContent="Mode enseignant : "+(on?"oui":"non");e.target.classList.toggle("on",on);if(!on&&keyOn){keyOn=false;$("#showKey").textContent="Afficher le corrigé";renderAbs()}};
+$("#theme").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme: dark)").matches);r.dataset.theme=d?"light":"dark"};
+document.addEventListener("input",e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;S[k]=e.target.value;save();if(k==="syn")synCount()});
+document.addEventListener("click",e=>{const b=e.target.closest(".lv button");if(!b)return;const q=b.parentNode.dataset.q;S["v_"+q]=S["v_"+q]===b.dataset.v?undefined:b.dataset.v;save();fill()});
+$("#copy").onclick=async()=>{const t=exportText();try{await navigator.clipboard.writeText(t);$("#msg").textContent="Copié."}catch(e){const r=document.createRange();r.selectNodeContents($("#out"));const s=getSelection();s.removeAllRanges();s.addRange(r);$("#msg").textContent="Texte sélectionné : faites Ctrl+C."}};
+$("#reset").onclick=e=>{if(e.target.dataset.c!=="1"){e.target.dataset.c="1";e.target.textContent="Confirmer l'effacement";setTimeout(()=>{e.target.dataset.c="";e.target.textContent="Tout effacer pour cet article"},3000);return}
+  S={};save();render();exportText();e.target.dataset.c="";e.target.textContent="Tout effacer pour cet article"};
+</script>
+</body>
+</html>
